@@ -32,7 +32,7 @@ jobs:
     - name: Create paperclip jar
       run: bash gradlew createReobfPaperclipJar
     - name: Rename hearse jar 
-      run: cd build/libs/ && mv hearse-paperclip-1.19.3-R0.1-SNAPSHOT-reobf.jar hearse-1.19.3-beta.jar
+      run: cd build/libs/ && mv hearse-paperclip-1.19.3-R0.1-SNAPSHOT-reobf.jar hearse-1.19.3-1.0-beta.jar
     - name: capture build artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -46,4 +46,4 @@ jobs:
         prerelease: false
         title: "AutoBuild"
         files: |
-          build/libs/hearse-1.19.3-beta.jar
+          build/libs/hearse-1.19.3-1.0-beta.jar

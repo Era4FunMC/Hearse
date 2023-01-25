@@ -14,6 +14,7 @@
 - Fork of [Purpur](https://github.com/PurpurMC/Purpur) for better performance.
 - Parallel entity ticking(Half of async)(In beta)
 - Parallel world ticking
+- Multithreaded tracker
 - Some fixes
 
 ## Contact

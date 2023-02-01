@@ -49,8 +49,15 @@ Credits:
 -------------
 - [Purpur](https://github.com/PurpurMC/Purpur)
 - [MCMTFabric](https://github.com/himekifee/MCMTFabric)
-- [KeYi](https://github.com/KeYiMC/KeYi)
 - [Akarin](https://github.com/Akarin-project/Akarin)
 
 ## Attention
 This is just a joke, do not use it in a production environment
+
+## Demo Servers
+- connect-server.kario.cn:20010
+
+## Special thanks
+- DJelly4K(https://github.com/DJelly4K) -- The demo server host provider
+- Dreeam(https://github.com/Dreeam-qwq) -- Helped with some problems and works
+- MartijnMuijsers(https://github.com/MartijnMuijsers) -- Helped to slove some concurrent problems

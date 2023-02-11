@@ -5,7 +5,7 @@ Subject: [PATCH] Paper chunk system changes
 
 
 diff --git a/src/main/java/io/papermc/paper/chunk/PlayerChunkLoader.java b/src/main/java/io/papermc/paper/chunk/PlayerChunkLoader.java
-index 0b060183429f4c72ec767075538477b4302bbf0d..23c32a06dce8f0c45647c3619c98ba95290cfa7d 100644
+index e77972c4c264100ffdd824bfa2dac58dbbc6d678..34372dac2a1ce5a9d93ff1fc02be102825d1623c 100644
 --- a/src/main/java/io/papermc/paper/chunk/PlayerChunkLoader.java
 +++ b/src/main/java/io/papermc/paper/chunk/PlayerChunkLoader.java
 @@ -7,9 +7,9 @@ import io.papermc.paper.util.CoordinateUtils;
@@ -86,7 +86,7 @@ index 0b060183429f4c72ec767075538477b4302bbf0d..23c32a06dce8f0c45647c3619c98ba95
 +
      private void trySendChunks() {
          final long time = System.nanoTime();
-         if (time < nextChunkSend) {
+         if (nextChunkSend - time > 0) {
              return;
          }
 +        PlayerLoaderData data1;
@@ -94,9 +94,9 @@ index 0b060183429f4c72ec767075538477b4302bbf0d..23c32a06dce8f0c45647c3619c98ba95
 -        while (!this.chunkSendWaitQueue.isEmpty()) {
 -            final PlayerLoaderData data = this.chunkSendWaitQueue.first();
 -
--            if (data.nextChunkSendTarget > time) {
+-            if (data.nextChunkSendTarget - time > 0) {
 +        while ((data1 = this.chunkSendWaitQueue.pollFirst())!=null) {
-+            if (data1.nextChunkSendTarget > time) {
++            if (data1.nextChunkSendTarget - time > 0) {
 +                this.chunkSendWaitQueue.add(data1);
                  break;
              }

@@ -1509,7 +1509,7 @@ index 83701fbfaa56a232593ee8f11a3afb8941238bfa..0eadacb873658a0c7bd9ab24f191bc75
          }
      }
 diff --git a/src/main/java/net/minecraft/world/entity/Entity.java b/src/main/java/net/minecraft/world/entity/Entity.java
-index 35afff85bcd4019789e4c40833b35df15a373b8c..4e7a69464d826f763b0ea6e182f3eea84a205d6c 100644
+index 1ae7ef3d94d4d3d8413a5419eeb9fadad89d2f8d..4605f9c708345f565e9c712915c87a67c3c382a2 100644
 --- a/src/main/java/net/minecraft/world/entity/Entity.java
 +++ b/src/main/java/net/minecraft/world/entity/Entity.java
 @@ -24,6 +24,8 @@ import java.util.function.BiConsumer;
@@ -1617,7 +1617,7 @@ index 35afff85bcd4019789e4c40833b35df15a373b8c..4e7a69464d826f763b0ea6e182f3eea8
          this.pistonDeltas = new double[]{0.0D, 0.0D, 0.0D};
          this.feetBlockState = null;
          this.type = type;
-@@ -4444,6 +4377,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+@@ -4453,6 +4386,7 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
          // Paper start
          this.setPosRaw(x, y, z, false);
      }
@@ -1625,7 +1625,7 @@ index 35afff85bcd4019789e4c40833b35df15a373b8c..4e7a69464d826f763b0ea6e182f3eea8
      public final void setPosRaw(double x, double y, double z, boolean forceBoundingBoxUpdate) {
          // Paper start - block invalid positions
          if (!checkPosition(this, x, y, z)) {
-@@ -4451,12 +4385,6 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+@@ -4460,12 +4394,6 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
          }
          // Paper end - block invalid positions
          // Paper end
@@ -1638,7 +1638,7 @@ index 35afff85bcd4019789e4c40833b35df15a373b8c..4e7a69464d826f763b0ea6e182f3eea8
          // Paper start - fix MC-4
          if (this instanceof ItemEntity) {
              if (io.papermc.paper.configuration.GlobalConfiguration.get().misc.fixEntityPositionDesync) {
-@@ -4572,10 +4500,6 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
+@@ -4581,10 +4509,6 @@ public abstract class Entity implements Nameable, EntityAccess, CommandSource {
      public final void setRemoved(Entity.RemovalReason reason) {
          // Paper start - rewrite chunk system
          io.papermc.paper.util.TickThread.ensureTickThread(this, "Cannot remove entity off-main");
@@ -1650,7 +1650,7 @@ index 35afff85bcd4019789e4c40833b35df15a373b8c..4e7a69464d826f763b0ea6e182f3eea8
          if (this.removalReason == null) {
              this.removalReason = reason;
 diff --git a/src/main/java/net/minecraft/world/entity/LivingEntity.java b/src/main/java/net/minecraft/world/entity/LivingEntity.java
-index 454cd09309f581b43a521fcb8fd184b7788c6a88..f7d56cd559ba9de19e45f79451e64999e393fa12 100644
+index b2e4b5c463ceb19356da18e7fc52d20801b674cd..3b008501535625b793bcff841bf8482bfa53e86b 100644
 --- a/src/main/java/net/minecraft/world/entity/LivingEntity.java
 +++ b/src/main/java/net/minecraft/world/entity/LivingEntity.java
 @@ -1,5 +1,6 @@
@@ -1720,7 +1720,7 @@ index 454cd09309f581b43a521fcb8fd184b7788c6a88..f7d56cd559ba9de19e45f79451e64999
                  this.lastClimbablePos = Optional.of(blockposition);
                  return true;
 diff --git a/src/main/java/net/minecraft/world/entity/Mob.java b/src/main/java/net/minecraft/world/entity/Mob.java
-index 7bd4e95fcaf3855a4fe412b5898a97d7992caad3..1e67e007f52bf3a423c38254a607a0568fbfe574 100644
+index 43cc8e8f07adecef21c70954918b8945a7c3ef62..38347a433ce779807889d8963cea045618741911 100644
 --- a/src/main/java/net/minecraft/world/entity/Mob.java
 +++ b/src/main/java/net/minecraft/world/entity/Mob.java
 @@ -860,7 +860,9 @@ public abstract class Mob extends LivingEntity {
@@ -2326,7 +2326,7 @@ index 004091f2026f3c58d9bce49f1b07f6441df8da8a..7999e27d5dc86ff5d3d827fa2de13073
  
      public List<ItemStack> getContents() {
 diff --git a/src/main/java/net/minecraft/world/item/ItemStack.java b/src/main/java/net/minecraft/world/item/ItemStack.java
-index 7222ff43de1b570458f2513fe1a44d97a09d0799..d627a2d8b30072780ed6786d63c2a10acd536e7d 100644
+index e2b341ecddb946e9c1e546b9706d86dd030db865..64ca88daf03c45cbc5268997638b40f42cf58fdc 100644
 --- a/src/main/java/net/minecraft/world/item/ItemStack.java
 +++ b/src/main/java/net/minecraft/world/item/ItemStack.java
 @@ -249,7 +249,9 @@ public final class ItemStack {
@@ -2341,7 +2341,7 @@ index 7222ff43de1b570458f2513fe1a44d97a09d0799..d627a2d8b30072780ed6786d63c2a10a
          this.emptyCacheFlag = this.isEmpty();
      }
 diff --git a/src/main/java/net/minecraft/world/level/Explosion.java b/src/main/java/net/minecraft/world/level/Explosion.java
-index 51d8271cb8fe246f4c11db8fbc061ed63f416da0..b122b4be317798ca0d6ac582472a6ac4c7d8c690 100644
+index 3c9e0cee78deeae6b47a186f1bfc47f3956ec9c7..6024f58a3994cefda5f7deddcd92d017f57bea5a 100644
 --- a/src/main/java/net/minecraft/world/level/Explosion.java
 +++ b/src/main/java/net/minecraft/world/level/Explosion.java
 @@ -4,12 +4,15 @@ import com.google.common.collect.Maps;
@@ -2372,8 +2372,8 @@ index 51d8271cb8fe246f4c11db8fbc061ed63f416da0..b122b4be317798ca0d6ac582472a6ac4
 +        this.hitPlayers = Maps.newConcurrentMap();
          this.level = world;
          this.source = entity;
-         this.radius = (float) Math.max(power, 0.0); // CraftBukkit - clamp bad values
-@@ -398,14 +401,10 @@ public class Explosion {
+         this.radius = (float) (world.purpurConfig.explosionClampRadius ? Math.max(power, 0.0) : power); // CraftBukkit - clamp bad values // Purpur
+@@ -396,14 +399,10 @@ public class Explosion {
          }
  
          if (this.fire) {

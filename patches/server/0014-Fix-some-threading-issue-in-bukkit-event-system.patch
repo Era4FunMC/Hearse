@@ -5,7 +5,7 @@ Subject: [PATCH] Fix some threading issue in bukkit event system
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index ccee4e137b3b1df96ce9fcdcdc6bf270a0b1ad01..de2b315f5a2233b137c24b883357f4719e404ec7 100644
+index 386f11b9d3a85e4ab24c88e05b234da0ccad3e69..ca422197c56e642b8e178fedab03e8ee3f5eda6a 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -1,6 +1,7 @@
@@ -16,7 +16,7 @@ index ccee4e137b3b1df96ce9fcdcdc6bf270a0b1ad01..de2b315f5a2233b137c24b883357f471
  import com.google.common.base.Charsets;
  import com.google.common.base.Function;
  import com.google.common.base.Preconditions;
-@@ -2321,6 +2322,11 @@ public final class CraftServer implements Server {
+@@ -2326,6 +2327,11 @@ public final class CraftServer implements Server {
          return io.papermc.paper.util.TickThread.isTickThread(); // Paper - rewrite chunk system
      }
  

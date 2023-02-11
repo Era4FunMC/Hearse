@@ -344,6 +344,35 @@ index e08f4e39db4ee3fed62e37364d17dcc5c5683504..f543462240e744e3424d302eb62be46c
 -    }
 +    public static void reset() {}
  }
+diff --git a/src/main/java/io/papermc/paper/util/TickThread.java b/src/main/java/io/papermc/paper/util/TickThread.java
+index fc57850b80303fcade89ca95794f63910404a407..ea277170975f59561775ad9b63467a7c9abdbbe3 100644
+--- a/src/main/java/io/papermc/paper/util/TickThread.java
++++ b/src/main/java/io/papermc/paper/util/TickThread.java
+@@ -1,5 +1,6 @@
+ package io.papermc.paper.util;
+ 
++import co.earthme.hearse.concurrent.thread.Worker;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.server.level.ServerLevel;
+ import net.minecraft.world.entity.Entity;
+@@ -74,14 +75,14 @@ public class TickThread extends Thread {
+     }
+ 
+     public static boolean isTickThread() {
+-        return Thread.currentThread() instanceof TickThread;
++        return Thread.currentThread() instanceof TickThread || Thread.currentThread() instanceof Worker;
+     }
+ 
+     public static boolean isTickThreadFor(final ServerLevel world, final int chunkX, final int chunkZ) {
+-        return Thread.currentThread() instanceof TickThread;
++        return Thread.currentThread() instanceof TickThread || Thread.currentThread() instanceof Worker;
+     }
+ 
+     public static boolean isTickThreadFor(final Entity entity) {
+-        return Thread.currentThread() instanceof TickThread;
++        return Thread.currentThread() instanceof TickThread || Thread.currentThread() instanceof Worker;
+     }
+ }
 diff --git a/src/main/java/io/papermc/paper/util/maplist/IteratorSafeOrderedReferenceSet.java b/src/main/java/io/papermc/paper/util/maplist/IteratorSafeOrderedReferenceSet.java
 index 0fd814f1d65c111266a2b20f86561839a4cef755..fe4d76875462ac9d408c972b968647af78f2ed14 100644
 --- a/src/main/java/io/papermc/paper/util/maplist/IteratorSafeOrderedReferenceSet.java

@@ -212,37 +212,266 @@ index 0000000000000000000000000000000000000000..1a4a6869a7278beadd97af006f4b5fae
 +        return false;
 +    }
 +}
-diff --git a/src/main/java/co/earthme/hearse/concurrent/WorkerThread.java b/src/main/java/co/earthme/hearse/concurrent/WorkerThread.java
+diff --git a/src/main/java/co/earthme/hearse/concurrent/WorkStealingThreadPool.java b/src/main/java/co/earthme/hearse/concurrent/WorkStealingThreadPool.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..421d4926ac674b5eb12d9613ceb6d20185ea557d
+index 0000000000000000000000000000000000000000..42d63f105e35e622517378f07aa75e1951d620c5
 --- /dev/null
-+++ b/src/main/java/co/earthme/hearse/concurrent/WorkerThread.java
-@@ -0,0 +1,18 @@
++++ b/src/main/java/co/earthme/hearse/concurrent/WorkStealingThreadPool.java
+@@ -0,0 +1,244 @@
 +package co.earthme.hearse.concurrent;
 +
-+import io.papermc.paper.util.TickThread;
++import org.jetbrains.annotations.NotNull;
++import org.jetbrains.annotations.Nullable;
 +
-+public class WorkerThread extends TickThread {
++import java.util.*;
++import java.util.concurrent.*;
++import java.util.concurrent.atomic.*;
++import java.util.concurrent.locks.*;
 +
-+    public WorkerThread(String name) {
-+        super(name);
++public class WorkStealingThreadPool{
++    private final Executor packaged = new PackagedExecutor(this);
++    private final List<WorkerThread> workers = new ArrayList<>();
++    private final StampedLock workersLock = new StampedLock();
++    private int lastPostedPos = 0;
++    private final WorkerThreadFactory factory;
++
++    public WorkStealingThreadPool(int nThreads, WorkerThreadFactory factory){
++        this.factory = factory;
++        this.runWorkers(nThreads);
 +    }
 +
-+    public WorkerThread(Runnable run, String name) {
-+        super(run, name);
++    private void sendStopToAll(){
++        final long stamp = this.workersLock.readLock();
++        try {
++            for (WorkerThread workerThread : this.workers){
++                workerThread.sendStop();
++            }
++        }finally {
++            this.workersLock.unlockRead(stamp);
++        }
 +    }
 +
-+    public static boolean isWorker(){
-+        return Thread.currentThread() instanceof WorkerThread;
++    @NotNull
++    public Executor getPackaged() {
++        return this.packaged;
++    }
++
++    private void runWorkers(int threadCount){
++        for (int i = 0; i < threadCount; i++) {
++            final WorkerThread workerThread = new WorkerThread();
++            final long stamp = this.workersLock.writeLock();
++            try {
++                this.workers.add(workerThread);
++            }finally {
++                this.workersLock.unlockWrite(stamp);
++            }
++            workerThread.start();
++        }
++    }
++
++    public void awaitTasks(){
++        final long stamp = this.workersLock.readLock();
++        try {
++            for (WorkerThread workerThread : this.workers){
++                workerThread.awaitTasks();
++            }
++        }finally {
++            this.workersLock.unlockRead(stamp);
++        }
++    }
++
++    public void postTask(@NotNull Runnable task){
++        long stamp = this.workersLock.tryOptimisticRead();
++        if (this.workersLock.validate(stamp)){
++            int workerIndex;
++            synchronized (this.workers){
++                if (this.lastPostedPos+1 >= this.workers.size()){
++                    this.lastPostedPos = 0;
++                }
++                workerIndex = this.lastPostedPos++;
++            }
++            final WorkerThread workerThread = this.workers.get(workerIndex);
++            workerThread.postRunnable(task);
++            return;
++        }
++        stamp = this.workersLock.readLock();
++        try {
++            int workerIndex;
++            synchronized (this.workers){
++                if (this.lastPostedPos+1 >= this.workers.size()){
++                    this.lastPostedPos = 0;
++                }
++                workerIndex = this.lastPostedPos++;
++            }
++            final WorkerThread workerThread = this.workers.get(workerIndex);
++            workerThread.postRunnable(task);
++        }finally {
++            this.workersLock.unlockRead(stamp);
++        }
++    }
++
++    public <T> Future<T> postTask(@NotNull Callable<T> task){
++        final FutureTask<T> newTask = new FutureTask<>(task);
++        this.postTask(newTask);
++        return newTask;
++    }
++
++    private class WorkerThread implements Runnable {
++        private final Deque<Runnable> tasks = new ArrayDeque<>();
++        private final ReadWriteLock taskLock = new ReentrantReadWriteLock();
++        private final AtomicBoolean runningTask = new AtomicBoolean();
++        private final Thread worker = WorkStealingThreadPool.this.factory.getNewThread(this);
++
++        private volatile boolean shouldRun = false;
++        private volatile boolean running = false;
++
++
++        public void postRunnable(@NotNull Runnable task){
++            this.taskLock.writeLock().lock();
++            try {
++                this.tasks.add(task);
++            }finally {
++                this.taskLock.writeLock().unlock();
++            }
++        }
++
++        public void sendStop(){
++            this.shouldRun = false;
++            LockSupport.unpark(this.worker);
++        }
++
++        public void awaitTerminate(){
++            while (this.running){
++                LockSupport.parkNanos(100000);
++            }
++        }
++
++        public void awaitTasks(){
++            while (this.runningTask.get()){
++                LockSupport.parkNanos(100000);
++            }
++        }
++
++        @Override
++        public void run(){
++            Runnable curTask;
++            Runnable stole;
++            while (this.shouldRun || !this.tasks.isEmpty()){
++                if ((curTask = this.pollTask(false)) != null){
++                    this.runningTask.set(true);
++                    try {
++                        curTask.run();
++                    }catch (Exception e){
++                        e.printStackTrace();
++                    }finally {
++                        this.runningTask.set(false);
++                    }
++                    continue;
++                }
++
++                if ((stole = this.steal()) != null){
++                    try {
++                        stole.run();
++                    }catch (Exception e){
++                        e.printStackTrace();
++                    }
++                    continue;
++                }
++
++                LockSupport.parkNanos("FREE WAITING",1000000);
++            }
++            this.running = false;
++        }
++
++        public void start(){
++            this.running = true;
++            this.shouldRun = true;
++            this.worker.start();
++        }
++
++        @Nullable
++        private Runnable steal(){
++            long stamp = WorkStealingThreadPool.this.workersLock.tryOptimisticRead();
++            if (WorkStealingThreadPool.this.workersLock.validate(stamp)){
++                for (WorkerThread workerThread : WorkStealingThreadPool.this.workers){
++                    if (workerThread.equals(this)){
++                        continue;
++                    }
++                    if (workerThread.isCurrentThreadRunningTask() && workerThread.getQueuedTaskCount() >= 1){
++                        return workerThread.pollTask(true);
++                    }
++                }
++                return null;
++            }
++
++            stamp = WorkStealingThreadPool.this.workersLock.readLock();
++            try {
++                for (WorkerThread workerThread : WorkStealingThreadPool.this.workers){
++                    if (workerThread.equals(this)){
++                        continue;
++                    }
++                    if (workerThread.isCurrentThreadRunningTask() && workerThread.getQueuedTaskCount() >= 1){
++                        return workerThread.pollTask(true);
++                    }
++                }
++                return null;
++            }finally {
++                WorkStealingThreadPool.this.workersLock.unlockRead(stamp);
++            }
++        }
++
++
++        protected int getQueuedTaskCount(){
++            this.taskLock.readLock().lock();
++            try {
++                return this.tasks.size();
++            }finally {
++                this.taskLock.readLock().unlock();
++            }
++        }
++
++        protected boolean isCurrentThreadRunningTask(){
++            return this.runningTask.get();
++        }
++
++        @Nullable
++        protected Runnable pollTask(boolean tail){
++            Runnable polledRunnable;
++
++            this.taskLock.writeLock().lock();
++            try {
++                polledRunnable = tail ? this.tasks.pollLast() : this.tasks.pollFirst();
++            }finally {
++                this.taskLock.writeLock().unlock();
++            }
++
++            return polledRunnable;
++        }
++    }
++
++    public static class PackagedExecutor implements Executor{
++        private final WorkStealingThreadPool internalPool;
++
++        public PackagedExecutor(@NotNull WorkStealingThreadPool internalPool) {
++            this.internalPool = internalPool;
++        }
++
++        @Override
++        public void execute(@NotNull Runnable command) {
++            this.internalPool.postTask(command);
++        }
 +    }
 +}
+\ No newline at end of file
 diff --git a/src/main/java/co/earthme/hearse/concurrent/WorkerThreadFactory.java b/src/main/java/co/earthme/hearse/concurrent/WorkerThreadFactory.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..e65b1eba68003a9f7ce5080d07a521817831ff48
+index 0000000000000000000000000000000000000000..5ffca8dac85fcbe50a4445ebc375b33d8228d690
 --- /dev/null
 +++ b/src/main/java/co/earthme/hearse/concurrent/WorkerThreadFactory.java
-@@ -0,0 +1,5 @@
+@@ -0,0 +1,7 @@
 +package co.earthme.hearse.concurrent;
++
++import co.earthme.hearse.concurrent.thread.WorkerThread;
 +
 +public interface WorkerThreadFactory {
 +    WorkerThread getNewThread(Runnable task);
@@ -329,20 +558,68 @@ index 0000000000000000000000000000000000000000..7e010bf23c9fc26284212a4388172f5d
 +        }
 +    }
 +}
+diff --git a/src/main/java/co/earthme/hearse/concurrent/thread/Worker.java b/src/main/java/co/earthme/hearse/concurrent/thread/Worker.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7a944bd515af644bad37a23e012a5a1997e110d
+--- /dev/null
++++ b/src/main/java/co/earthme/hearse/concurrent/thread/Worker.java
+@@ -0,0 +1,7 @@
++package co.earthme.hearse.concurrent.thread;
++
++public interface Worker {
++    static boolean isWorker(){
++        return Thread.currentThread() instanceof Worker;
++    }
++}
+diff --git a/src/main/java/co/earthme/hearse/concurrent/thread/WorkerForkJoinThread.java b/src/main/java/co/earthme/hearse/concurrent/thread/WorkerForkJoinThread.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..6a2fb0643b6fc5921b24674940c2c3b92b9e4e88
+--- /dev/null
++++ b/src/main/java/co/earthme/hearse/concurrent/thread/WorkerForkJoinThread.java
+@@ -0,0 +1,10 @@
++package co.earthme.hearse.concurrent.thread;
++
++import java.util.concurrent.ForkJoinPool;
++import java.util.concurrent.ForkJoinWorkerThread;
++
++public class WorkerForkJoinThread extends ForkJoinWorkerThread implements Worker {
++    protected WorkerForkJoinThread(ForkJoinPool pool) {
++        super(pool);
++    }
++}
+diff --git a/src/main/java/co/earthme/hearse/concurrent/thread/WorkerThread.java b/src/main/java/co/earthme/hearse/concurrent/thread/WorkerThread.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f27bfd7ab3ce10e6c318de0c6376a80fa9014d2a
+--- /dev/null
++++ b/src/main/java/co/earthme/hearse/concurrent/thread/WorkerThread.java
+@@ -0,0 +1,14 @@
++package co.earthme.hearse.concurrent.thread;
++
++import io.papermc.paper.util.TickThread;
++
++public class WorkerThread extends TickThread implements Worker{
++
++    public WorkerThread(String name) {
++        super(name);
++    }
++
++    public WorkerThread(Runnable run, String name) {
++        super(run, name);
++    }
++}
 diff --git a/src/main/java/co/earthme/hearse/concurrent/threadfactory/DefaultWorkerFactory.java b/src/main/java/co/earthme/hearse/concurrent/threadfactory/DefaultWorkerFactory.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..03a29509821a17faac2dc8ab810a2693b03bfbc6
+index 0000000000000000000000000000000000000000..b88b4f2d3df7303252a3c02824be3514c2618673
 --- /dev/null
 +++ b/src/main/java/co/earthme/hearse/concurrent/threadfactory/DefaultWorkerFactory.java
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,41 @@
 +package co.earthme.hearse.concurrent.threadfactory;
 +
-+import co.earthme.hearse.concurrent.WorkerThread;
++import co.earthme.hearse.concurrent.thread.WorkerThread;
 +import co.earthme.hearse.concurrent.WorkerThreadFactory;
 +import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 +import it.unimi.dsi.fastutil.objects.ObjectLists;
 +import net.minecraft.server.MinecraftServer;
-+
 +import java.util.List;
 +import java.util.concurrent.atomic.AtomicInteger;
 +
@@ -379,16 +656,15 @@ index 0000000000000000000000000000000000000000..03a29509821a17faac2dc8ab810a2693
 +}
 diff --git a/src/main/java/co/earthme/hearse/server/ServerEntityTickHook.java b/src/main/java/co/earthme/hearse/server/ServerEntityTickHook.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..c0e7a9cf79ddf00827daba0aa9c7a32fa76b0c7c
+index 0000000000000000000000000000000000000000..1896d163104236a618b659977045b18288f403c8
 --- /dev/null
 +++ b/src/main/java/co/earthme/hearse/server/ServerEntityTickHook.java
-@@ -0,0 +1,102 @@
+@@ -0,0 +1,83 @@
 +package co.earthme.hearse.server;
 +
-+import co.earthme.hearse.Hearse;
 +import co.earthme.hearse.HearseConfig;
++import co.earthme.hearse.concurrent.WorkStealingThreadPool;
 +import co.earthme.hearse.concurrent.WorkerThreadFactory;
-+import co.earthme.hearse.concurrent.WorkerThreadPoolExecutor;
 +import co.earthme.hearse.concurrent.threadfactory.DefaultWorkerFactory;
 +import net.minecraft.server.MinecraftServer;
 +import net.minecraft.server.level.ServerLevel;
@@ -396,89 +672,71 @@ index 0000000000000000000000000000000000000000..c0e7a9cf79ddf00827daba0aa9c7a32f
 +import net.minecraft.world.entity.player.Player;
 +import org.apache.logging.log4j.LogManager;
 +import org.apache.logging.log4j.Logger;
-+import java.util.concurrent.LinkedBlockingQueue;
++
 +import java.util.concurrent.RejectedExecutionException;
-+import java.util.concurrent.TimeUnit;
 +import java.util.concurrent.atomic.AtomicInteger;
++import java.util.concurrent.locks.LockSupport;
 +
 +public class ServerEntityTickHook {
 +    private static final Logger logger = LogManager.getLogger();
-+    private static volatile boolean firstTick = false;
 +    private static final WorkerThreadFactory defFactory = new DefaultWorkerFactory("entity");
-+    private static final AtomicInteger threadId = new AtomicInteger();
-+    private static WorkerThreadPoolExecutor worker;
-+    private static boolean asyncEntityEnabled;
++    private static WorkStealingThreadPool worker;
++    private static boolean asyncEntityEnabled = true;
++    private static boolean awaitEntityTasks = true;
++    private static final AtomicInteger taskCounter = new AtomicInteger(0);
 +
-+    public static void executeAsyncTask(Runnable task){
-+        if (!asyncEntityEnabled){
-+            throw new RejectedExecutionException();
++    //To prevent the chunk system error.This is necessary
++    public static void awaitEntityTasks(){
++        while (taskCounter.get() > 0){
++            LockSupport.parkNanos("Await entities",1000000);
 +        }
-+        worker.execute(task);
 +    }
 +
 +    public static void init(){
-+        boolean asyncEntityEnabled1 = HearseConfig.getBoolean("optimizations.enable-async-entity",true);
-+        final int workerCount = HearseConfig.getInt("workers.async-entity-worker-count",Runtime.getRuntime().availableProcessors());
-+        if (asyncEntityEnabled1){
-+            worker = new WorkerThreadPoolExecutor(
++        asyncEntityEnabled = HearseConfig.getBoolean("optimizations.enable-parallel-entity",asyncEntityEnabled);
++        awaitEntityTasks = HearseConfig.getBoolean("optimizations.await-parallel-entity-tasks",awaitEntityTasks);
++        if (asyncEntityEnabled){
++            final int workerCount = HearseConfig.getInt("workers.async-entity-worker-count",Runtime.getRuntime().availableProcessors());
++            worker = new WorkStealingThreadPool(
 +                    workerCount,
-+                    workerCount,
-+                    0L,
-+                    TimeUnit.MILLISECONDS,
-+                    new LinkedBlockingQueue<>(),
 +                    defFactory
 +            );
-+            Hearse.getWorkerManager().addWorker("entity",worker);
 +        }
-+        asyncEntityEnabled = asyncEntityEnabled1;
-+    }
-+
-+    public static void executeAsyncTaskWithMainThreadCallback(Runnable task,Runnable callBack){
-+        if (!asyncEntityEnabled){
-+            throw new IllegalStateException();
-+        }
-+        worker.executeWithSubTask(task,callBack);
-+    }
-+
-+    public static void callTickStart(){
-+        if (!firstTick){
-+            firstTick = true;
-+            return;
-+        }
-+        if (!asyncEntityEnabled){
-+            return;
-+        }
-+        worker.runAllSubTasks();
 +    }
 +
 +    public static void callAsyncEntityTick(Entity entity, ServerLevel level){
 +        MinecraftServer.getServer().executeMidTickTasks();
++        taskCounter.getAndIncrement();
 +        Runnable task = ()->{
-+            entity.activatedPriorityReset = false;
-+            if (!entity.isRemoved()) {
-+                entity.checkDespawn();
-+                Entity entity1 = entity.getVehicle();
-+                if (entity1 != null) {
-+                    if (!entity1.isRemoved() && entity1.hasPassenger(entity)) {
-+                        return;
++            try {
++                entity.activatedPriorityReset = false;
++                if (!entity.isRemoved()) {
++                    entity.checkDespawn();
++                    Entity entity1 = entity.getVehicle();
++                    if (entity1 != null) {
++                        if (!entity1.isRemoved() && entity1.hasPassenger(entity)) {
++                            return;
++                        }
++                        entity.stopRiding();
 +                    }
-+                    entity.stopRiding();
++                    try {
++                        level.tickNonPassenger(entity);
++                    } catch (Throwable throwable) {
++                        if (throwable instanceof ThreadDeath) throw throwable;
++                        level.getCraftServer().getPluginManager().callEvent(new com.destroystokyo.paper.event.server.ServerExceptionEvent(new com.destroystokyo.paper.exception.ServerInternalException(throwable.getMessage(), throwable)));
++                        throwable.printStackTrace();
++                    }
 +                }
-+                try {
-+                    level.tickNonPassenger(entity);
-+                } catch (Throwable throwable) {
-+                    if (throwable instanceof ThreadDeath) throw throwable;
-+                    level.getCraftServer().getPluginManager().callEvent(new com.destroystokyo.paper.event.server.ServerExceptionEvent(new com.destroystokyo.paper.exception.ServerInternalException(throwable.getMessage(), throwable)));
-+                    throwable.printStackTrace();
-+                }
++            }finally {
++                taskCounter.getAndDecrement();
 +            }
 +        };
-+        if (!asyncEntityEnabled){
++        if (!asyncEntityEnabled || entity instanceof Player){
 +            task.run();
 +            return;
 +        }
 +        try {
-+            worker.execute(task);
++            worker.postTask(task);
 +        }catch (RejectedExecutionException e){
 +            logger.warn("Worker rejected our task.Falling back to sync entity updating");
 +            asyncEntityEnabled = false;
@@ -487,25 +745,24 @@ index 0000000000000000000000000000000000000000..c0e7a9cf79ddf00827daba0aa9c7a32f
 +}
 diff --git a/src/main/java/co/earthme/hearse/server/ServerLevelTickHook.java b/src/main/java/co/earthme/hearse/server/ServerLevelTickHook.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..8085eb700d8e5c20ebb5bfeceb78198c6e973019
+index 0000000000000000000000000000000000000000..4c85bf8e4705a781a55a048f0b0541f0d32e2f07
 --- /dev/null
 +++ b/src/main/java/co/earthme/hearse/server/ServerLevelTickHook.java
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,77 @@
 +package co.earthme.hearse.server;
 +
 +import co.earthme.hearse.Hearse;
 +import co.earthme.hearse.HearseConfig;
-+import co.earthme.hearse.concurrent.WorkerThread;
 +import co.earthme.hearse.concurrent.WorkerThreadPoolExecutor;
 +import co.earthme.hearse.concurrent.threadfactory.DefaultWorkerFactory;
-+import net.minecraft.CrashReport;
-+import net.minecraft.ReportedException;
++import co.earthme.hearse.util.ArrayListBlockingQueue;
++import io.netty.handler.codec.serialization.ObjectEncoder;
 +import net.minecraft.server.MinecraftServer;
 +import net.minecraft.server.level.ServerLevel;
 +import org.apache.logging.log4j.LogManager;
 +import org.apache.logging.log4j.Logger;
 +
-+import java.util.concurrent.LinkedBlockingQueue;
++import java.util.concurrent.ArrayBlockingQueue;
 +import java.util.concurrent.TimeUnit;
 +import java.util.concurrent.atomic.AtomicInteger;
 +import java.util.concurrent.locks.LockSupport;
@@ -514,20 +771,18 @@ index 0000000000000000000000000000000000000000..8085eb700d8e5c20ebb5bfeceb78198c
 +public class ServerLevelTickHook {
 +    private static final DefaultWorkerFactory workerFactory = new DefaultWorkerFactory("world");
 +    private static WorkerThreadPoolExecutor worker;
-+    private static boolean enabledParaWorld;
-+    private static volatile boolean inited = false;
 +    private static final AtomicInteger activeTaskCount = new AtomicInteger();
 +    private static final Logger logger = LogManager.getLogger();
 +
 +    public static void initWorker(){
-+        enabledParaWorld = HearseConfig.getBoolean("optimizations.enableparallelworldtick",true);
++        boolean enabledParaWorld = HearseConfig.getBoolean("optimizations.enableparallelworldtick", true);
 +        if (enabledParaWorld){
 +            worker = new WorkerThreadPoolExecutor(
 +                    MinecraftServer.getServer().levels.size(),
 +                    MinecraftServer.getServer().levels.size(),
 +                    Long.MAX_VALUE,
 +                    TimeUnit.MILLISECONDS,
-+                    new LinkedBlockingQueue<>(),
++                    new ArrayBlockingQueue<>(MinecraftServer.getServer().levels.size()),
 +                    workerFactory
 +            );
 +            worker.allowCoreThreadTimeOut(true);
@@ -537,16 +792,11 @@ index 0000000000000000000000000000000000000000..8085eb700d8e5c20ebb5bfeceb78198c
 +                logger.warn("World worker name:{}.This can help you to slove the lag problems when you using parallel world ticking",worker.getName());
 +            }
 +        }
-+        inited = true;
-+    }
-+
-+    public static boolean isInited(){
-+        return inited;
 +    }
 +
 +    public static void callWorldTick(ServerLevel worldserver, BooleanSupplier shouldKeepTicking){
 +        activeTaskCount.getAndIncrement();
-+        worker.execute(()->{
++        Runnable task = () -> {
 +            try {
 +                try {
 +                    worldserver.tick(shouldKeepTicking);
@@ -560,7 +810,14 @@ index 0000000000000000000000000000000000000000..8085eb700d8e5c20ebb5bfeceb78198c
 +            }finally {
 +                activeTaskCount.getAndDecrement();
 +            }
-+        });
++        };
++
++        if (worker == null){
++            task.run();
++            return;
++        }
++
++        worker.execute(task);
 +    }
 +
 +    public static void awaitWorldTicKTasks(){
@@ -569,18 +826,347 @@ index 0000000000000000000000000000000000000000..8085eb700d8e5c20ebb5bfeceb78198c
 +        }
 +    }
 +}
+diff --git a/src/main/java/co/earthme/hearse/util/ArrayListBlockingQueue.java b/src/main/java/co/earthme/hearse/util/ArrayListBlockingQueue.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..ec63191dca67c51f387ede9796a039210c8c3f99
+--- /dev/null
++++ b/src/main/java/co/earthme/hearse/util/ArrayListBlockingQueue.java
+@@ -0,0 +1,256 @@
++package co.earthme.hearse.util;
++
++import org.jetbrains.annotations.NotNull;
++
++import java.util.*;
++import java.util.concurrent.*;
++import java.util.concurrent.locks.*;
++
++public class ArrayListBlockingQueue<T> implements BlockingQueue<T> {
++    private final List<T> internalList = new ArrayList<>();
++    private final StampedLock editLock = new StampedLock();
++
++    @Override
++    public boolean add(@NotNull T t) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.add(t);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public boolean offer(@NotNull T t) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.add(t);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public T remove() {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.remove(0);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public T poll() {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.isEmpty() ? null : this.internalList.remove(0);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public T element() {
++        long id = this.editLock.readLock();
++        try {
++            if (this.internalList.isEmpty()){
++                throw new NoSuchElementException();
++            }
++            return this.internalList.get(0);
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public T peek() {
++        long id = this.editLock.readLock();
++        try {
++            if (this.internalList.isEmpty()){
++                throw new NoSuchElementException();
++            }
++            return this.internalList.get(0);
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public void put(@NotNull T t) {
++        final long id = this.editLock.writeLock();
++        try {
++            this.internalList.add(t);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public boolean offer(T t, long timeout, @NotNull TimeUnit unit) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.add(t);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public T take() throws InterruptedException {
++        T t;
++        while ((t = this.poll()) == null){
++            synchronized (this){
++                this.wait(0,1);
++            }
++        }
++        return t;
++    }
++
++    @Override
++    public T poll(long timeout, @NotNull TimeUnit unit) throws InterruptedException {
++        T t;
++        long countTime = unit.toNanos(timeout);
++        while ((t = this.poll()) == null){
++            if (countTime == 0){
++                break;
++            }
++            synchronized (this){
++                this.wait(0,1);
++            }
++            countTime--;
++        }
++        return t;
++    }
++
++    @Override
++    public int remainingCapacity() {
++        throw new UnsupportedOperationException("remainingCapacity");
++    }
++
++    @Override
++    public boolean remove(Object o) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.remove(o);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public boolean containsAll(@NotNull Collection<?> c) {
++        final long id = this.editLock.writeLock();
++        try {
++            return new HashSet<>(this.internalList).containsAll(c);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public boolean addAll(@NotNull Collection<? extends T> c) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.addAll(c);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public boolean removeAll(@NotNull Collection<?> c) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.removeAll(c);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public boolean retainAll(@NotNull Collection<?> c) {
++        final long id = this.editLock.writeLock();
++        try {
++            return this.internalList.retainAll(c);
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public void clear() {
++        final long id = this.editLock.writeLock();
++        try {
++            this.internalList.clear();
++        }finally {
++            this.editLock.unlockWrite(id);
++        }
++    }
++
++    @Override
++    public int size() {
++        long id = this.editLock.readLock();
++        try {
++            return this.internalList.size();
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public boolean isEmpty() {
++        long id = this.editLock.readLock();
++        try {
++            return this.internalList.isEmpty();
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public boolean contains(Object o) {
++        long id = this.editLock.readLock();
++        try {
++            return this.internalList.contains(o);
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public Iterator<T> iterator() {
++        throw new UnsupportedOperationException("Iterator");
++    }
++
++    @Override
++    public Object[] toArray() {
++        long id = this.editLock.readLock();
++        try {
++            return this.internalList.toArray();
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public <T1> T1[] toArray(T1 @NotNull [] a) {
++        long id = this.editLock.readLock();
++        try {
++            return this.internalList.toArray(a);
++        }finally {
++            this.editLock.unlockRead(id);
++        }
++    }
++
++    @Override
++    public int drainTo(@NotNull Collection<? super T> c) {
++        throw new UnsupportedOperationException("drainTo");
++    }
++
++    @Override
++    public int drainTo(@NotNull Collection<? super T> c, int maxElements) {
++        throw new UnsupportedOperationException("drainTo");
++    }
++}
++
+diff --git a/src/main/java/co/earthme/hearse/util/EntityPositionCache.java b/src/main/java/co/earthme/hearse/util/EntityPositionCache.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..6f34233901cf1943694224ab393dea5548cb8e5b
+--- /dev/null
++++ b/src/main/java/co/earthme/hearse/util/EntityPositionCache.java
+@@ -0,0 +1,60 @@
++package co.earthme.hearse.util;
++
++import net.minecraft.world.entity.Entity;
++import net.minecraft.world.entity.LivingEntity;
++import net.minecraft.world.phys.Vec3;
++import org.jetbrains.annotations.NotNull;
++
++public class EntityPositionCache {
++    private final double x;
++    private final double y;
++    private final double z;
++    private final LivingEntity currentEntity;
++
++    public EntityPositionCache(@NotNull LivingEntity entity){
++        this.x = entity.getX();
++        this.y = entity.getY();
++        this.z = entity.getZ();
++        this.currentEntity = entity;
++    }
++
++    public LivingEntity getCurrentEntity() {
++        return this.currentEntity;
++    }
++
++    public double getX() {
++        return this.x;
++    }
++
++    public double getY() {
++        return this.y;
++    }
++
++    public double getZ() {
++        return this.z;
++    }
++
++    public double distanceToSqr(double x, double y, double z) {
++        double d3 = this.x - x;
++        double d4 = this.y - y;
++        double d5 = this.z - z;
++
++        return d3 * d3 + d4 * d4 + d5 * d5;
++    }
++
++    public double distanceToSqr(Entity entity) {
++        return this.distanceToSqr(entity.position());
++    }
++
++    public double distanceToSqr(Vec3 vector) {
++        double d0 = this.x - vector.x;
++        double d1 = this.y - vector.y;
++        double d2 = this.z - vector.z;
++
++        return d0 * d0 + d1 * d1 + d2 * d2;
++    }
++
++    public double distanceToSqr(EntityPositionCache entityPositionCache) {
++        return this.distanceToSqr(entityPositionCache.getX(),entityPositionCache.getY(),entityPositionCache.getZ());
++    }
++}
 diff --git a/src/main/java/co/earthme/hearse/workers/WorkerThreadPoolManager.java b/src/main/java/co/earthme/hearse/workers/WorkerThreadPoolManager.java
 new file mode 100644
-index 0000000000000000000000000000000000000000..527dba288e1988773fd5a89f076f92084034f421
+index 0000000000000000000000000000000000000000..8cb0d00fb3cd4282873c8b8db88c87e59f8ef9de
 --- /dev/null
 +++ b/src/main/java/co/earthme/hearse/workers/WorkerThreadPoolManager.java
-@@ -0,0 +1,68 @@
+@@ -0,0 +1,69 @@
 +package co.earthme.hearse.workers;
 +
 +import co.earthme.hearse.concurrent.WorkerThreadPoolExecutor;
 +import com.google.common.collect.Maps;
 +import java.util.List;
 +import java.util.Map;
++import java.util.concurrent.ForkJoinPool;
 +import java.util.concurrent.TimeUnit;
 +
 +public class WorkerThreadPoolManager {
@@ -595,7 +1181,7 @@ index 0000000000000000000000000000000000000000..527dba288e1988773fd5a89f076f9208
 +            if (!worker.isShutdown()){
 +                worker.getQueue().clear(); //Clear the tasks.We don't need wait them
 +                worker.shutdown();
-+                while (worker.awaitTermination(100, TimeUnit.MILLISECONDS)) {}
++                while (worker.awaitTermination(100, TimeUnit.MILLISECONDS)); {}
 +            }
 +        }
 +    }

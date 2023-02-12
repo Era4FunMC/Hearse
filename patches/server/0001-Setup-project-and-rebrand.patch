@@ -5,7 +5,7 @@ Subject: [PATCH] Setup project and rebrand
 
 
 diff --git a/build.gradle.kts b/build.gradle.kts
-index d5b7458f6b79addf1a12eb82443ba5bdbe2ea5d3..ee14c871b36af98cd1e3d57249ca6cb7f9ce635a 100644
+index 020927dfe9624453311d1d171a10f44344ec8710..96cf2522659e497b7f952cb977bf9603c4d4e707 100644
 --- a/build.gradle.kts
 +++ b/build.gradle.kts
 @@ -7,7 +7,7 @@ plugins {
@@ -49,7 +49,7 @@ index 9713263c3bd34ab8a3bfc0a8797ba0b1b88ed733..f9aaee5ed62b9a0cb6056c7d873864fa
                  metrics.addCustomChart(new Metrics.DrilldownPie("java_version", () -> {
                      Map<String, Map<String, Integer>> map = new HashMap<>();
 diff --git a/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java b/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java
-index fba5dbdb7bcbb55400ef18342c9b54612972a718..dd5f91a3bbb3a6bef1d8e05bdbb5ceb6a8259f55 100644
+index fba5dbdb7bcbb55400ef18342c9b54612972a718..c83e6dbf68c1f0997e797fc43ad3d5c909f49460 100644
 --- a/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java
 +++ b/src/main/java/com/destroystokyo/paper/PaperVersionFetcher.java
 @@ -20,7 +20,7 @@ import java.util.stream.StreamSupport;
@@ -57,7 +57,7 @@ index fba5dbdb7bcbb55400ef18342c9b54612972a718..dd5f91a3bbb3a6bef1d8e05bdbb5ceb6
      private static final java.util.regex.Pattern VER_PATTERN = java.util.regex.Pattern.compile("^([0-9\\.]*)\\-.*R"); // R is an anchor, will always give '-R' at end
      // Purpur start
 -    private static final String DOWNLOAD_PAGE = "https://purpurmc.org/downloads";
-+    private static final String DOWNLOAD_PAGE = "https://github.com/NaturalCodeClub/HearseRewrite/releases/tag/Auto-Build";
++    private static final String DOWNLOAD_PAGE = "https://github.com/Era4FunMC/Hearse/releases/tag/Auto-Build";
      private static int distance = -2; public int distance() { return distance; }
      // Purpur end
      private static @Nullable String mcVer;
@@ -68,7 +68,7 @@ index fba5dbdb7bcbb55400ef18342c9b54612972a718..dd5f91a3bbb3a6bef1d8e05bdbb5ceb6
 -        String[] parts = serverVersion.substring("git-Purpur-".length()).split("[-\\s]"); // Purpur
 -        final Component updateMessage = getUpdateStatusMessage("PurpurMC/Purpur", "ver/" + getMinecraftVersion(), parts[0]); // Purpur
 +        String[] parts = serverVersion.substring("git-Hearse-".length()).split("[-\\s]"); // Purpur //Hearse
-+        final Component updateMessage = getUpdateStatusMessage("NaturalCodeClub/HearseRewrite", "ver/" + getMinecraftVersion(), parts[0]); // Purpur //Hearse
++        final Component updateMessage = getUpdateStatusMessage("Era4FunMC/Hearse", "ver/" + getMinecraftVersion(), parts[0]); // Purpur //Hearse
          final Component history = getHistory();
  
          return history != null ? Component.join(net.kyori.adventure.text.JoinConfiguration.separator(Component.newline()), history, updateMessage) : updateMessage; // Purpur
@@ -114,7 +114,7 @@ index 3cb56595822799926a8141e60a42f5d1edfc6de5..eae6af434ef62e5aa2d8f9fdae3a7b66
                  .completer(new ConsoleCommandCompleter(this.server))
                  .option(LineReader.Option.COMPLETE_IN_WORD, true);
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index b69634a5cf57e4086e644819f68638d6a2ab897c..ccee4e137b3b1df96ce9fcdcdc6bf270a0b1ad01 100644
+index 4a8aafd341fdad4b5ae326c4759b3381f5061fb5..386f11b9d3a85e4ab24c88e05b234da0ccad3e69 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -1,5 +1,6 @@
@@ -133,7 +133,7 @@ index b69634a5cf57e4086e644819f68638d6a2ab897c..ccee4e137b3b1df96ce9fcdcdc6bf270
      private final String serverVersion;
      private final String bukkitVersion = Versioning.getBukkitVersion();
      private final Logger logger = Logger.getLogger("Minecraft");
-@@ -451,31 +452,33 @@ public final class CraftServer implements Server {
+@@ -451,37 +452,38 @@ public final class CraftServer implements Server {
              // Purpur start
              List<File> extraJars = this.extraPluginJars();
              if (!Boolean.getBoolean("Purpur.IReallyDontWantSpark")) {
@@ -145,9 +145,13 @@ index b69634a5cf57e4086e644819f68638d6a2ab897c..ccee4e137b3b1df96ce9fcdcdc6bf270
 -                    if (file.exists()) {
 -                        String fileSha1 = String.format("%040x", new java.math.BigInteger(1, java.security.MessageDigest.getInstance("SHA-1").digest(java.nio.file.Files.readAllBytes(file.toPath()))));
 -                        String sparkSha1;
--                        try (java.io.BufferedReader reader = new java.io.BufferedReader(new InputStreamReader(new java.net.URL("https://sparkapi.lucko.me/download/bukkit/sha1").openStream()))) {
+-                        java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit/sha1").openConnection();
+-                        urlConnection.setReadTimeout(5000);
+-                        urlConnection.setConnectTimeout(5000);
+-                        try (java.io.BufferedReader reader = new java.io.BufferedReader(new InputStreamReader(urlConnection.getInputStream()))) {
 -                            sparkSha1 = reader.lines().collect(Collectors.joining(""));
-+                if (HearseConfig.getBoolean("purpurmisc.auto-download-spark",true)){
+-                        }
++                if (HearseConfig.getBoolean("purpurmisc.auto-download-spark", true)) {
 +                    try {
 +                        File file = new File("cache", "spark.jar");
 +                        file.getParentFile().mkdirs();
@@ -156,24 +160,32 @@ index b69634a5cf57e4086e644819f68638d6a2ab897c..ccee4e137b3b1df96ce9fcdcdc6bf270
 +                        if (file.exists()) {
 +                            String fileSha1 = String.format("%040x", new java.math.BigInteger(1, java.security.MessageDigest.getInstance("SHA-1").digest(java.nio.file.Files.readAllBytes(file.toPath()))));
 +                            String sparkSha1;
-+                            try (java.io.BufferedReader reader = new java.io.BufferedReader(new InputStreamReader(new java.net.URL("https://sparkapi.lucko.me/download/bukkit/sha1").openStream()))) {
++                            java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit/sha1").openConnection();
++                            urlConnection.setReadTimeout(5000);
++                            urlConnection.setConnectTimeout(5000);
++                            try (java.io.BufferedReader reader = new java.io.BufferedReader(new InputStreamReader(urlConnection.getInputStream()))) {
 +                                sparkSha1 = reader.lines().collect(Collectors.joining(""));
 +                            }
-+
+ 
+-                        if (fileSha1.equals(sparkSha1)) {
+-                            shouldDownload = false;
 +                            if (fileSha1.equals(sparkSha1)) {
 +                                shouldDownload = false;
 +                            }
                          }
- 
--                        if (fileSha1.equals(sparkSha1)) {
--                            shouldDownload = false;
-+                        if (shouldDownload) {
-+                            java.nio.file.Files.copy(new java.net.URL("https://sparkapi.lucko.me/download/bukkit").openStream(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-                         }
 -                    }
  
 -                    if (shouldDownload) {
--                        java.nio.file.Files.copy(new java.net.URL("https://sparkapi.lucko.me/download/bukkit").openStream(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+-                        java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit").openConnection();
+-                        urlConnection.setReadTimeout(5000);
+-                        urlConnection.setConnectTimeout(5000);
+-                        java.nio.file.Files.copy(urlConnection.getInputStream(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++                        if (shouldDownload) {
++                            java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit").openConnection();
++                            urlConnection.setReadTimeout(5000);
++                            urlConnection.setConnectTimeout(5000);
++                            java.nio.file.Files.copy(urlConnection.getInputStream(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++                        }
 +                        extraJars.add(file);
 +                    } catch (Exception e) {
 +                        getLogger().severe("Purpur: Failed to download and install spark plugin");
@@ -188,10 +200,10 @@ index b69634a5cf57e4086e644819f68638d6a2ab897c..ccee4e137b3b1df96ce9fcdcdc6bf270
              }
              Plugin[] plugins = this.pluginManager.loadPlugins(pluginFolder, extraJars);
 diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
-index ddec0b7470e5a925ad6247970269f3654792ab25..af6b2905a3ac49ddfbf7aad4133dffde3ae242e3 100644
+index 78ac748859e21a61140e9bff67e4527a8d35b4b6..8a7d66185f0e68f2e2380ad063ede3b39de94d51 100644
 --- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
 +++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
-@@ -877,7 +877,7 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+@@ -883,7 +883,7 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
              return EntityCategory.WATER;
          }
  
@@ -227,14 +239,31 @@ index fb87620c742ff7912f5e8ccd2a7930dd605576d9..8c727afbb6730718497e230fdf6f4ff4
  
          if (stream != null) {
 diff --git a/src/main/java/org/purpurmc/purpur/PurpurConfig.java b/src/main/java/org/purpurmc/purpur/PurpurConfig.java
-index 76cbfb7e900bf2698776f54cfe498f4b42965221..b64013a5442384e58b3a0b70966918ceadd9650d 100644
+index c7c0ed8dfe58c841faf684a1fe228eeda6cd57b7..e09feb04869c5f146b7723e9384a61ae9b6ee3d7 100644
 --- a/src/main/java/org/purpurmc/purpur/PurpurConfig.java
 +++ b/src/main/java/org/purpurmc/purpur/PurpurConfig.java
-@@ -244,7 +244,7 @@ public class PurpurConfig {
-         if (!TimingsManager.hiddenConfigs.contains("settings.seed")) TimingsManager.hiddenConfigs.add("settings.seed");
+@@ -227,7 +227,24 @@ public class PurpurConfig {
+         deathMessageOnlyBroadcastToAffectedPlayer = getBoolean("settings.broadcasts.death.only-broadcast-to-affected-player", deathMessageOnlyBroadcastToAffectedPlayer);
      }
  
 -    public static String serverModName = "Purpur";
++    public static int seedStructureBuriedTreasure = -1;
++    public static int seedStructureMineshaft = -1;
++    private static void seedSettings() {
++        seedStructureBuriedTreasure = getInt("settings.seed.structure.buried_treasure", seedStructureBuriedTreasure);
++        seedStructureMineshaft = getInt("settings.seed.structure.mineshaft", seedStructureMineshaft);
++        if (version < 26) {
++            int stronghold = getInt("settings.seed.structure.stronghold", -1);
++            set("settings.seed.structure.stronghold", null);
++            if (stronghold != -1) {
++                org.spigotmc.SpigotConfig.config.set("world-settings.default.seed-stronghold", stronghold);
++                org.spigotmc.SpigotConfig.save();
++            }
++        }
++        // hide these from timings report
++        if (!TimingsManager.hiddenConfigs.contains("settings.seed")) TimingsManager.hiddenConfigs.add("settings.seed");
++    }
++
 +    public static String serverModName = "Hearse"; //Hearse
      private static void serverModName() {
          serverModName = getString("settings.server-mod-name", serverModName);

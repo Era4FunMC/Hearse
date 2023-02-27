@@ -52,7 +52,7 @@ Credits:
 - [Akarin](https://github.com/Akarin-project/Akarin)
 
 ## Attention
-This is just a joke, do not use it in a production environment
+This project may still has something wrong.
 
 ## Demo Servers
 - connect-server.kario.cn:20010

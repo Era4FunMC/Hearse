@@ -55,7 +55,7 @@ Credits:
 This project may still has something wrong.
 
 ## Demo Servers
-- connect-server.kario.cn:20010
+- connect-server.kario.cn:20010 (Now was stopped for hardware update)
 
 ## Special thanks
 - [DJelly4K](https://github.com/DJelly4K) -- The demo server host provider

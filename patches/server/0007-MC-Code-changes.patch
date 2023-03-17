@@ -866,7 +866,7 @@ index 0ae45cf5a084fd412305e8b2f5dabe608b4eb1c1..24c629ce5febfb0438ff1811fbe8ba4a
              return super.pollTask() | ServerChunkCache.this.level.chunkTaskScheduler.executeMainThreadTask(); // Paper - rewrite chunk system
          }
 diff --git a/src/main/java/net/minecraft/server/level/ServerLevel.java b/src/main/java/net/minecraft/server/level/ServerLevel.java
-index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799ce9324f3b 100644
+index a5655ebb233f1e1e1dd7f79fdd948020478928fc..90a1443abada31c2d63af69d7e0a258ffbde48cc 100644
 --- a/src/main/java/net/minecraft/server/level/ServerLevel.java
 +++ b/src/main/java/net/minecraft/server/level/ServerLevel.java
 @@ -1,69 +1,37 @@
@@ -1005,13 +1005,13 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
  import net.minecraft.world.level.gameevent.DynamicGameEventListener;
  import net.minecraft.world.level.gameevent.GameEvent;
  import net.minecraft.world.level.gameevent.GameEventDispatcher;
-@@ -158,21 +103,32 @@ import net.minecraft.world.phys.shapes.BooleanOp;
+@@ -158,21 +103,33 @@ import net.minecraft.world.phys.shapes.BooleanOp;
  import net.minecraft.world.phys.shapes.Shapes;
  import net.minecraft.world.phys.shapes.VoxelShape;
  import net.minecraft.world.ticks.LevelTicks;
 -import org.slf4j.Logger;
  import org.bukkit.Bukkit;
--import org.bukkit.Location;
+ import org.bukkit.Location;
  import org.bukkit.WeatherType;
  import org.bukkit.craftbukkit.event.CraftEventFactory;
  import org.bukkit.craftbukkit.generator.CustomWorldChunkManager;
@@ -1044,7 +1044,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
  
  public class ServerLevel extends Level implements WorldGenLevel {
  
-@@ -192,7 +148,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -192,7 +149,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
      public final ServerChunkCache chunkSource;
      private final MinecraftServer server;
      public final PrimaryLevelData serverLevelData; // CraftBukkit - type
@@ -1053,7 +1053,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
      //public final PersistentEntitySectionManager<Entity> entityManager; // Paper - rewrite chunk system
      private final GameEventDispatcher gameEventDispatcher;
      public boolean noSave;
-@@ -204,7 +160,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -204,7 +161,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
      final Set<Mob> navigatingMobs;
      volatile boolean isUpdatingNavigations;
      protected final Raids raids;
@@ -1062,7 +1062,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
      private final List<BlockEventData> blockEventsToReschedule;
      private boolean handlingTick;
      private final List<CustomSpawner> customSpawners;
-@@ -272,7 +228,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -272,7 +229,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      public final void loadChunksForMoveAsync(AABB axisalignedbb, ca.spottedleaf.concurrentutil.executor.standard.PrioritisedExecutor.Priority priority,
                                               java.util.function.Consumer<List<net.minecraft.world.level.chunk.ChunkAccess>> onLoad) {
@@ -1071,7 +1071,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
              this.getChunkSource().mainThreadProcessor.execute(() -> {
                  this.loadChunksForMoveAsync(axisalignedbb, priority, onLoad);
              });
-@@ -449,7 +405,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -449,7 +406,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
      // Paper end
  
      // Paper start - optimise checkDespawn
@@ -1080,7 +1080,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
      // Paper end - optimise checkDespawn
      // Paper start - optimise get nearest players for entity AI
      @Override
-@@ -539,10 +495,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -539,10 +496,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
          this.entityTickList = new EntityTickList();
          this.blockTicks = new LevelTicks<>(this::isPositionTickingWithEntitiesLoaded, this.getProfilerSupplier());
          this.fluidTicks = new LevelTicks<>(this::isPositionTickingWithEntitiesLoaded, this.getProfilerSupplier());
@@ -1095,7 +1095,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
          this.tickTime = flag1;
          this.server = minecraftserver;
          // Purpur start - enable/disable MobSpawners per world
-@@ -712,71 +668,15 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -712,71 +669,15 @@ public class ServerLevel extends Level implements WorldGenLevel {
          //timings.doSounds.stopTiming(); // Spigot // Purpur
          this.handlingTick = false;
          //gameprofilerfiller.pop(); // Purpur
@@ -1175,7 +1175,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
      }
  
      @Override
-@@ -836,7 +736,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -836,7 +737,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      }
  
@@ -1184,7 +1184,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
          return !this.server.isSpawningAnimals() && (entity instanceof Animal || entity instanceof WaterAnimal) ? true : !this.server.areNpcsEnabled() && entity instanceof Npc;
      }
  
-@@ -1296,13 +1196,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1296,13 +1197,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
          } else { entity.inactiveTick(); } // Paper - EAR 2
          //this.getProfiler().pop(); // Purpur
          //} finally { timer.stopTiming(); } // Paper - timings // Purpur
@@ -1201,7 +1201,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
          // } finally { timer.stopTiming(); } // Paper - timings - move up
          // Paper start - log detailed entity tick information
          } finally {
-@@ -1341,11 +1238,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1341,11 +1239,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
                  }
                  // Paper end - EAR 2
                  //gameprofilerfiller.pop(); // Purpur
@@ -1214,7 +1214,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
                      this.tickPassenger(passenger, entity2);
                  }
  
-@@ -1729,56 +1623,56 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1729,56 +1624,56 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      @Override
      public void sendBlockUpdated(BlockPos pos, BlockState oldState, BlockState newState, int flags) {
@@ -1311,7 +1311,7 @@ index a5655ebb233f1e1e1dd7f79fdd948020478928fc..29f8c6e2c7ba2139d9920d39b0b0799c
      }
  
      @Override
-@@ -1845,10 +1739,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1845,10 +1740,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      private void runBlockEvents() {
          this.blockEventsToReschedule.clear();

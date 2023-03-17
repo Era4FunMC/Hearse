@@ -22,25 +22,22 @@ index e0f69edf603c2ec99bc92b16b18912272cc41bd9..efbfcc009e3d9faf4c8093801d9f1999
      /**
       * Gets the message that is displayed on the server list.
 diff --git a/src/main/java/org/bukkit/plugin/SimplePluginManager.java b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
-index 75be5cdfeb30732975bbc38dc7aab52a0cdead9c..65af81c4d6e3fe0764f6efaedc3e333469a94aa3 100644
+index bd4d1a40f53784662174d426533ef4b5433a15b7..716136226c5c01f022a53dc5594bb43a81514ed3 100644
 --- a/src/main/java/org/bukkit/plugin/SimplePluginManager.java
 +++ b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
-@@ -652,8 +652,11 @@ public final class SimplePluginManager implements PluginManager {
-             defaultPerms.get(false).clear();
+@@ -607,6 +607,8 @@ public final class SimplePluginManager implements PluginManager {
          }
      }
-+
-     private void fireEvent(Event event) { callEvent(event); } // Paper - support old method incase plugin uses reflection
  
-+    private final Object eventLock = new Object();//Hearse ensure event system thread safe
++    private final Object eventLock = new Object(); //Hearse ensure event system thread safe
 +
      /**
       * Calls an event with the given details.
       *
-@@ -668,6 +671,20 @@ public final class SimplePluginManager implements PluginManager {
-             throw new IllegalStateException(event.getEventName() + " may only be triggered synchronously.");
-         }
+@@ -632,6 +634,20 @@ public final class SimplePluginManager implements PluginManager {
+     }
  
+     private void fireEvent(@NotNull Event event) {
 +        //Hearse start
 +        if (server.isWorkerThread()){
 +            synchronized (this.eventLock){
@@ -58,7 +55,7 @@ index 75be5cdfeb30732975bbc38dc7aab52a0cdead9c..65af81c4d6e3fe0764f6efaedc3e3334
          HandlerList handlers = event.getHandlers();
          RegisteredListener[] listeners = handlers.getRegisteredListeners();
  
-@@ -689,7 +706,7 @@ public final class SimplePluginManager implements PluginManager {
+@@ -653,7 +669,7 @@ public final class SimplePluginManager implements PluginManager {
                              plugin.getDescription().getAuthors(),
                              plugin.getDescription().getFullName(),
                              ex.getMessage()
@@ -67,7 +64,7 @@ index 75be5cdfeb30732975bbc38dc7aab52a0cdead9c..65af81c4d6e3fe0764f6efaedc3e3334
                  }
              } catch (Throwable ex) {
                  gg.pufferfish.pufferfish.sentry.SentryContext.setEventContext(event, registration); // Pufferfish
-@@ -704,6 +721,7 @@ public final class SimplePluginManager implements PluginManager {
+@@ -668,6 +684,7 @@ public final class SimplePluginManager implements PluginManager {
              }
          }
      }

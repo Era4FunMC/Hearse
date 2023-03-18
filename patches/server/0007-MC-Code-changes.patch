@@ -42,7 +42,7 @@ index 24c677e80af652952263253409c050641e72e3b5..c6f9fb3efb92de0879eab6389fabd531
              this.positions[j] = short0;
              this.states[j] = (section != null) ? section.getBlockState(SectionPos.sectionRelativeX(short0), SectionPos.sectionRelativeY(short0), SectionPos.sectionRelativeZ(short0)) : net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(); // CraftBukkit - SPIGOT-6076, Mojang bug when empty chunk section notified
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index cea4447aad2d64db56a76e4ba180dc7326d2e13b..74979db25eb4850e771c23d063d0b82965e32e12 100644
+index 1772800c123353207e3563a7e2c2b70431aec097..17a2c1320d04058acf9f20073fb4ef62b8f767ea 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -1,10 +1,11 @@
@@ -196,7 +196,7 @@ index cea4447aad2d64db56a76e4ba180dc7326d2e13b..74979db25eb4850e771c23d063d0b829
  
          //this.profiler.popPush("connection"); // Purpur
 diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
-index 46858fb57f122033a68aeb4ad3943132a677fb46..40a099ca82a914c04cdc8a58bec627b9910d2d28 100644
+index fd1b0564d2d2b45128e6f2556fb93ee56bd683b5..d56b5f189076be612aedc9a4132e373c3d0bf5d8 100644
 --- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
 +++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
 @@ -1,5 +1,6 @@
@@ -866,7 +866,7 @@ index 0ae45cf5a084fd412305e8b2f5dabe608b4eb1c1..24c629ce5febfb0438ff1811fbe8ba4a
              return super.pollTask() | ServerChunkCache.this.level.chunkTaskScheduler.executeMainThreadTask(); // Paper - rewrite chunk system
          }
 diff --git a/src/main/java/net/minecraft/server/level/ServerLevel.java b/src/main/java/net/minecraft/server/level/ServerLevel.java
-index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e67422648 100644
+index a5655ebb233f1e1e1dd7f79fdd948020478928fc..90a1443abada31c2d63af69d7e0a258ffbde48cc 100644
 --- a/src/main/java/net/minecraft/server/level/ServerLevel.java
 +++ b/src/main/java/net/minecraft/server/level/ServerLevel.java
 @@ -1,69 +1,37 @@
@@ -1005,13 +1005,13 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
  import net.minecraft.world.level.gameevent.DynamicGameEventListener;
  import net.minecraft.world.level.gameevent.GameEvent;
  import net.minecraft.world.level.gameevent.GameEventDispatcher;
-@@ -158,21 +103,32 @@ import net.minecraft.world.phys.shapes.BooleanOp;
+@@ -158,21 +103,33 @@ import net.minecraft.world.phys.shapes.BooleanOp;
  import net.minecraft.world.phys.shapes.Shapes;
  import net.minecraft.world.phys.shapes.VoxelShape;
  import net.minecraft.world.ticks.LevelTicks;
 -import org.slf4j.Logger;
  import org.bukkit.Bukkit;
--import org.bukkit.Location;
+ import org.bukkit.Location;
  import org.bukkit.WeatherType;
  import org.bukkit.craftbukkit.event.CraftEventFactory;
  import org.bukkit.craftbukkit.generator.CustomWorldChunkManager;
@@ -1044,7 +1044,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
  
  public class ServerLevel extends Level implements WorldGenLevel {
  
-@@ -192,7 +148,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -192,7 +149,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
      public final ServerChunkCache chunkSource;
      private final MinecraftServer server;
      public final PrimaryLevelData serverLevelData; // CraftBukkit - type
@@ -1053,7 +1053,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
      //public final PersistentEntitySectionManager<Entity> entityManager; // Paper - rewrite chunk system
      private final GameEventDispatcher gameEventDispatcher;
      public boolean noSave;
-@@ -204,7 +160,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -204,7 +161,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
      final Set<Mob> navigatingMobs;
      volatile boolean isUpdatingNavigations;
      protected final Raids raids;
@@ -1062,7 +1062,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
      private final List<BlockEventData> blockEventsToReschedule;
      private boolean handlingTick;
      private final List<CustomSpawner> customSpawners;
-@@ -272,7 +228,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -272,7 +229,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      public final void loadChunksForMoveAsync(AABB axisalignedbb, ca.spottedleaf.concurrentutil.executor.standard.PrioritisedExecutor.Priority priority,
                                               java.util.function.Consumer<List<net.minecraft.world.level.chunk.ChunkAccess>> onLoad) {
@@ -1071,7 +1071,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
              this.getChunkSource().mainThreadProcessor.execute(() -> {
                  this.loadChunksForMoveAsync(axisalignedbb, priority, onLoad);
              });
-@@ -449,7 +405,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -449,7 +406,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
      // Paper end
  
      // Paper start - optimise checkDespawn
@@ -1080,7 +1080,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
      // Paper end - optimise checkDespawn
      // Paper start - optimise get nearest players for entity AI
      @Override
-@@ -539,10 +495,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -539,10 +496,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
          this.entityTickList = new EntityTickList();
          this.blockTicks = new LevelTicks<>(this::isPositionTickingWithEntitiesLoaded, this.getProfilerSupplier());
          this.fluidTicks = new LevelTicks<>(this::isPositionTickingWithEntitiesLoaded, this.getProfilerSupplier());
@@ -1095,7 +1095,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
          this.tickTime = flag1;
          this.server = minecraftserver;
          // Purpur start - enable/disable MobSpawners per world
-@@ -712,71 +668,15 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -712,71 +669,15 @@ public class ServerLevel extends Level implements WorldGenLevel {
          //timings.doSounds.stopTiming(); // Spigot // Purpur
          this.handlingTick = false;
          //gameprofilerfiller.pop(); // Purpur
@@ -1175,7 +1175,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
      }
  
      @Override
-@@ -836,7 +736,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -836,7 +737,7 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      }
  
@@ -1184,7 +1184,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
          return !this.server.isSpawningAnimals() && (entity instanceof Animal || entity instanceof WaterAnimal) ? true : !this.server.areNpcsEnabled() && entity instanceof Npc;
      }
  
-@@ -1296,13 +1196,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1296,13 +1197,10 @@ public class ServerLevel extends Level implements WorldGenLevel {
          } else { entity.inactiveTick(); } // Paper - EAR 2
          //this.getProfiler().pop(); // Purpur
          //} finally { timer.stopTiming(); } // Paper - timings // Purpur
@@ -1201,7 +1201,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
          // } finally { timer.stopTiming(); } // Paper - timings - move up
          // Paper start - log detailed entity tick information
          } finally {
-@@ -1341,11 +1238,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1341,11 +1239,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
                  }
                  // Paper end - EAR 2
                  //gameprofilerfiller.pop(); // Purpur
@@ -1214,7 +1214,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
                      this.tickPassenger(passenger, entity2);
                  }
  
-@@ -1729,56 +1623,56 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1729,56 +1624,56 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      @Override
      public void sendBlockUpdated(BlockPos pos, BlockState oldState, BlockState newState, int flags) {
@@ -1311,7 +1311,7 @@ index b396a329e753f42b3878736b6b14bafda02d3744..f934449f48703ad3248c17968e31e93e
      }
  
      @Override
-@@ -1845,10 +1739,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
+@@ -1845,10 +1740,8 @@ public class ServerLevel extends Level implements WorldGenLevel {
  
      private void runBlockEvents() {
          this.blockEventsToReschedule.clear();
@@ -1650,7 +1650,7 @@ index 1ae7ef3d94d4d3d8413a5419eeb9fadad89d2f8d..4605f9c708345f565e9c712915c87a67
          if (this.removalReason == null) {
              this.removalReason = reason;
 diff --git a/src/main/java/net/minecraft/world/entity/LivingEntity.java b/src/main/java/net/minecraft/world/entity/LivingEntity.java
-index b2e4b5c463ceb19356da18e7fc52d20801b674cd..3b008501535625b793bcff841bf8482bfa53e86b 100644
+index cc8de71037a1eb5dc08467f9bfb84d5abb40b7df..7dcccab77ccc6b2a5fbdfc4505cc7a019c6c25e5 100644
 --- a/src/main/java/net/minecraft/world/entity/LivingEntity.java
 +++ b/src/main/java/net/minecraft/world/entity/LivingEntity.java
 @@ -1,5 +1,6 @@
@@ -2341,7 +2341,7 @@ index e2b341ecddb946e9c1e546b9706d86dd030db865..64ca88daf03c45cbc5268997638b40f4
          this.emptyCacheFlag = this.isEmpty();
      }
 diff --git a/src/main/java/net/minecraft/world/level/Explosion.java b/src/main/java/net/minecraft/world/level/Explosion.java
-index 3c9e0cee78deeae6b47a186f1bfc47f3956ec9c7..6024f58a3994cefda5f7deddcd92d017f57bea5a 100644
+index d5a7ac1a0b5308a30ab6bdfb401e8cc517926305..465ab7cdf2733d4af46ec931a3b5e7802ffa3c8d 100644
 --- a/src/main/java/net/minecraft/world/level/Explosion.java
 +++ b/src/main/java/net/minecraft/world/level/Explosion.java
 @@ -4,12 +4,15 @@ import com.google.common.collect.Maps;
@@ -2372,8 +2372,8 @@ index 3c9e0cee78deeae6b47a186f1bfc47f3956ec9c7..6024f58a3994cefda5f7deddcd92d017
 +        this.hitPlayers = Maps.newConcurrentMap();
          this.level = world;
          this.source = entity;
-         this.radius = (float) (world.purpurConfig.explosionClampRadius ? Math.max(power, 0.0) : power); // CraftBukkit - clamp bad values // Purpur
-@@ -396,14 +399,10 @@ public class Explosion {
+         this.radius = (float) (world == null || world.purpurConfig.explosionClampRadius ? Math.max(power, 0.0) : power); // CraftBukkit - clamp bad values // Purpur
+@@ -416,14 +419,10 @@ public class Explosion {
          }
  
          if (this.fire) {
@@ -2391,7 +2391,7 @@ index 3c9e0cee78deeae6b47a186f1bfc47f3956ec9c7..6024f58a3994cefda5f7deddcd92d017
                      }
                      // CraftBukkit end
 diff --git a/src/main/java/net/minecraft/world/level/Level.java b/src/main/java/net/minecraft/world/level/Level.java
-index a9289072b048095330ea32d7c965e8dda61a36fc..d1619574d086c950328a311d9b89f5dd1651aa67 100644
+index fef709fce7309795b6d62d33a220a2be2399efd3..1100dcd7ac70f729c4007f6b34054c81469c9124 100644
 --- a/src/main/java/net/minecraft/world/level/Level.java
 +++ b/src/main/java/net/minecraft/world/level/Level.java
 @@ -1,23 +1,19 @@
@@ -2472,7 +2472,7 @@ index a9289072b048095330ea32d7c965e8dda61a36fc..d1619574d086c950328a311d9b89f5dd
      public java.util.ArrayDeque<net.minecraft.world.level.block.RedstoneTorchBlock.Toggle> redstoneUpdateInfos; // Paper - Move from Map in BlockRedstoneTorch to here
  
      // Paper start - fix and optimise world upgrading
-@@ -1163,7 +1151,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable {
+@@ -1165,7 +1153,7 @@ public abstract class Level implements LevelAccessor, AutoCloseable {
          }
          // Paper end
          // CraftBukkit end

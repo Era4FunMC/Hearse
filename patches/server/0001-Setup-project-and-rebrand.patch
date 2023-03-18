@@ -5,7 +5,7 @@ Subject: [PATCH] Setup project and rebrand
 
 
 diff --git a/build.gradle.kts b/build.gradle.kts
-index 020927dfe9624453311d1d171a10f44344ec8710..96cf2522659e497b7f952cb977bf9603c4d4e707 100644
+index 0435c1eb5c1fa6f9180ee8dc36a61afbac0f952e..5001b8f304988c93bd62481a5ba68af3c3924ac5 100644
 --- a/build.gradle.kts
 +++ b/build.gradle.kts
 @@ -7,7 +7,7 @@ plugins {
@@ -17,7 +17,7 @@ index 020927dfe9624453311d1d171a10f44344ec8710..96cf2522659e497b7f952cb977bf9603
      // Pufferfish start
      implementation("io.papermc.paper:paper-mojangapi:1.19.3-R0.1-SNAPSHOT") {
          exclude("io.papermc.paper", "paper-api")
-@@ -83,7 +83,7 @@ tasks.jar {
+@@ -85,7 +85,7 @@ tasks.jar {
          attributes(
              "Main-Class" to "org.bukkit.craftbukkit.Main",
              "Implementation-Title" to "CraftBukkit",
@@ -113,18 +113,96 @@ index 3cb56595822799926a8141e60a42f5d1edfc6de5..eae6af434ef62e5aa2d8f9fdae3a7b66
                  .variable(LineReader.HISTORY_FILE, java.nio.file.Paths.get(".console_history"))
                  .completer(new ConsoleCommandCompleter(this.server))
                  .option(LineReader.Option.COMPLETE_IN_WORD, true);
-diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index 4a8aafd341fdad4b5ae326c4759b3381f5061fb5..386f11b9d3a85e4ab24c88e05b234da0ccad3e69 100644
---- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-+++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+diff --git a/src/main/java/io/papermc/paper/plugin/provider/source/SparkProviderSource.java b/src/main/java/io/papermc/paper/plugin/provider/source/SparkProviderSource.java
+index 74e3334ec92e3864b84e299b33ca995224eb7c3f..0374296a4d5af0fad119b05b299f4c82bde18a83 100644
+--- a/src/main/java/io/papermc/paper/plugin/provider/source/SparkProviderSource.java
++++ b/src/main/java/io/papermc/paper/plugin/provider/source/SparkProviderSource.java
 @@ -1,5 +1,6 @@
- package org.bukkit.craftbukkit;
+ package io.papermc.paper.plugin.provider.source;
  
 +import co.earthme.hearse.HearseConfig;
- import com.google.common.base.Charsets;
- import com.google.common.base.Function;
- import com.google.common.base.Preconditions;
-@@ -262,7 +263,7 @@ import javax.annotation.Nullable; // Paper
+ import com.mojang.logging.LogUtils;
+ import io.papermc.paper.plugin.entrypoint.Entrypoint;
+ import io.papermc.paper.plugin.entrypoint.EntrypointHandler;
+@@ -31,42 +32,44 @@ public class SparkProviderSource extends FileProviderSource {
+     @Override
+     public void registerProviders(EntrypointHandler entrypointHandler, Path context) throws Exception {
+         if (!Boolean.getBoolean("Purpur.IReallyDontWantSpark")) {
+-            try {
+-                File file = context.toFile();
+-                file.getParentFile().mkdirs();
++            if (HearseConfig.getBoolean("purpurmisc.auto-download-spark", true)) {
++                try {
++                    File file = context.toFile();
++                    file.getParentFile().mkdirs();
+ 
+-                boolean shouldDownload = true;
+-                if (file.exists()) {
+-                    String fileSha1 = String.format("%040x", new BigInteger(1, MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(file.toPath()))));
+-                    String sparkSha1;
+-                    URLConnection urlConnection = new URL("https://sparkapi.lucko.me/download/bukkit/sha1").openConnection();
+-                    urlConnection.setReadTimeout(5000);
+-                    urlConnection.setConnectTimeout(5000);
+-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()))) {
+-                        sparkSha1 = reader.lines().collect(Collectors.joining(""));
++                    boolean shouldDownload = true;
++                    if (file.exists()) {
++                        String fileSha1 = String.format("%040x", new BigInteger(1, MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(file.toPath()))));
++                        String sparkSha1;
++                        URLConnection urlConnection = new URL("https://sparkapi.lucko.me/download/bukkit/sha1").openConnection();
++                        urlConnection.setReadTimeout(5000);
++                        urlConnection.setConnectTimeout(5000);
++                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()))) {
++                            sparkSha1 = reader.lines().collect(Collectors.joining(""));
++                        }
++
++                        if (fileSha1.equals(sparkSha1)) {
++                            shouldDownload = false;
++                        }
+                     }
+ 
+-                    if (fileSha1.equals(sparkSha1)) {
+-                        shouldDownload = false;
++                    if (shouldDownload) {
++                        URLConnection urlConnection = new URL("https://sparkapi.lucko.me/download/bukkit").openConnection();
++                        urlConnection.setReadTimeout(5000);
++                        urlConnection.setConnectTimeout(5000);
++                        Files.copy(urlConnection.getInputStream(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                     }
+-                }
+ 
+-                if (shouldDownload) {
+-                    URLConnection urlConnection = new URL("https://sparkapi.lucko.me/download/bukkit").openConnection();
+-                    urlConnection.setReadTimeout(5000);
+-                    urlConnection.setConnectTimeout(5000);
+-                    Files.copy(urlConnection.getInputStream(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
+-                }
++                    if (hasSpark()) {
++                        LOGGER.info("Purpur: Using user-provided spark plugin instead of our own.");
++                    } else {
++                        super.registerProviders(entrypointHandler, context);
++                    }
+ 
+-                if (hasSpark()) {
+-                     LOGGER.info("Purpur: Using user-provided spark plugin instead of our own.");
+-                } else {
+-                    super.registerProviders(entrypointHandler, context);
++                } catch (Exception e) {
++                    LOGGER.error("Purpur: Failed to download and install spark plugin");
++                    e.printStackTrace();
+                 }
+-
+-            } catch (Exception e) {
+-                LOGGER.error("Purpur: Failed to download and install spark plugin");
+-                e.printStackTrace();
+             }
+         }
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 584596c8849b4dd7f955216f313eefb3229b375c..64efd17fe4e48a019a28408c3c05861d047907fc 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -261,7 +261,7 @@ import javax.annotation.Nullable; // Paper
  import javax.annotation.Nonnull; // Paper
  
  public final class CraftServer implements Server {
@@ -133,72 +211,6 @@ index 4a8aafd341fdad4b5ae326c4759b3381f5061fb5..386f11b9d3a85e4ab24c88e05b234da0
      private final String serverVersion;
      private final String bukkitVersion = Versioning.getBukkitVersion();
      private final Logger logger = Logger.getLogger("Minecraft");
-@@ -451,37 +452,38 @@ public final class CraftServer implements Server {
-             // Purpur start
-             List<File> extraJars = this.extraPluginJars();
-             if (!Boolean.getBoolean("Purpur.IReallyDontWantSpark")) {
--                try {
--                    File file = new File("cache", "spark.jar");
--                    file.getParentFile().mkdirs();
--
--                    boolean shouldDownload = true;
--                    if (file.exists()) {
--                        String fileSha1 = String.format("%040x", new java.math.BigInteger(1, java.security.MessageDigest.getInstance("SHA-1").digest(java.nio.file.Files.readAllBytes(file.toPath()))));
--                        String sparkSha1;
--                        java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit/sha1").openConnection();
--                        urlConnection.setReadTimeout(5000);
--                        urlConnection.setConnectTimeout(5000);
--                        try (java.io.BufferedReader reader = new java.io.BufferedReader(new InputStreamReader(urlConnection.getInputStream()))) {
--                            sparkSha1 = reader.lines().collect(Collectors.joining(""));
--                        }
-+                if (HearseConfig.getBoolean("purpurmisc.auto-download-spark", true)) {
-+                    try {
-+                        File file = new File("cache", "spark.jar");
-+                        file.getParentFile().mkdirs();
-+
-+                        boolean shouldDownload = true;
-+                        if (file.exists()) {
-+                            String fileSha1 = String.format("%040x", new java.math.BigInteger(1, java.security.MessageDigest.getInstance("SHA-1").digest(java.nio.file.Files.readAllBytes(file.toPath()))));
-+                            String sparkSha1;
-+                            java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit/sha1").openConnection();
-+                            urlConnection.setReadTimeout(5000);
-+                            urlConnection.setConnectTimeout(5000);
-+                            try (java.io.BufferedReader reader = new java.io.BufferedReader(new InputStreamReader(urlConnection.getInputStream()))) {
-+                                sparkSha1 = reader.lines().collect(Collectors.joining(""));
-+                            }
- 
--                        if (fileSha1.equals(sparkSha1)) {
--                            shouldDownload = false;
-+                            if (fileSha1.equals(sparkSha1)) {
-+                                shouldDownload = false;
-+                            }
-                         }
--                    }
- 
--                    if (shouldDownload) {
--                        java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit").openConnection();
--                        urlConnection.setReadTimeout(5000);
--                        urlConnection.setConnectTimeout(5000);
--                        java.nio.file.Files.copy(urlConnection.getInputStream(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-+                        if (shouldDownload) {
-+                            java.net.URLConnection urlConnection = new java.net.URL("https://sparkapi.lucko.me/download/bukkit").openConnection();
-+                            urlConnection.setReadTimeout(5000);
-+                            urlConnection.setConnectTimeout(5000);
-+                            java.nio.file.Files.copy(urlConnection.getInputStream(), file.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-+                        }
-+                        extraJars.add(file);
-+                    } catch (Exception e) {
-+                        getLogger().severe("Purpur: Failed to download and install spark plugin");
-+                        e.printStackTrace();
-                     }
--
--                    extraJars.add(file);
--                } catch (Exception e) {
--                    getLogger().severe("Purpur: Failed to download and install spark plugin");
--                    e.printStackTrace();
-                 }
-             }
-             Plugin[] plugins = this.pluginManager.loadPlugins(pluginFolder, extraJars);
 diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
 index 78ac748859e21a61140e9bff67e4527a8d35b4b6..8a7d66185f0e68f2e2380ad063ede3b39de94d51 100644
 --- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
@@ -239,7 +251,7 @@ index fb87620c742ff7912f5e8ccd2a7930dd605576d9..8c727afbb6730718497e230fdf6f4ff4
  
          if (stream != null) {
 diff --git a/src/main/java/org/purpurmc/purpur/PurpurConfig.java b/src/main/java/org/purpurmc/purpur/PurpurConfig.java
-index c7c0ed8dfe58c841faf684a1fe228eeda6cd57b7..e09feb04869c5f146b7723e9384a61ae9b6ee3d7 100644
+index 3e6d3b71931a18263eff11841cb4e916ba44e1b8..9f1e3474b26e7c3cbd7a536b4a2132ac4d0988f3 100644
 --- a/src/main/java/org/purpurmc/purpur/PurpurConfig.java
 +++ b/src/main/java/org/purpurmc/purpur/PurpurConfig.java
 @@ -227,7 +227,24 @@ public class PurpurConfig {

@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: wangxyper <wangxyper@163.com>
+Date: Sun, 12 Mar 2023 08:25:31 +0800
+Subject: [PATCH] Fix a code error
+
+
+diff --git a/src/main/java/net/minecraft/server/level/ServerChunkCache.java b/src/main/java/net/minecraft/server/level/ServerChunkCache.java
+index 210f7b2e429ae54fd0fa3c59bc36809ab033913a..d6104a27c73d8c6e15b2a667ba57d9fb49771b21 100644
+--- a/src/main/java/net/minecraft/server/level/ServerChunkCache.java
++++ b/src/main/java/net/minecraft/server/level/ServerChunkCache.java
+@@ -64,7 +64,7 @@ public class ServerChunkCache extends ChunkSource {
+     // Paper start
+     private final Long2ObjectMap<LevelChunk> loadedChunkMap = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>(8192, 0.5f));
+ 
+-    public it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<LevelChunk> getLoadedChunkMap() { return this.loadedChunkMap; } // KioCG
++    public it.unimi.dsi.fastutil.longs.Long2ObjectMap<LevelChunk> getLoadedChunkMap() { return this.loadedChunkMap; } // KioCG
+     private final LevelChunk[] lastLoadedChunks = new LevelChunk[4 * 4];
+     
+     public boolean firstRunSpawnCounts = true; // Pufferfish
